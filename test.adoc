@@ -1,0 +1,102 @@
+[#top-dm-roads-compound-topology]
+= Using modifiers to define compound topology
+:source-highlighter: shiki
+
+== Example 1: Compound topology
+
+Consider the following example, involving two junctions:
+
+* A vehicle (v1) moves on roads with at least 2 lanes each.
+* Take the first exit (right) of the first junction (which is a 4-way-junction).
+* Cross an adjacent arbitrary second junction in an arbitrary way.
+* A second vehicle (v2) initially moves along a second route that is included in the route of v1.
+
+.Example code for compound topology
+[source,osc2]
+----
+# Define that compound topology:
+# Roads, junctions, routes covering several roads
+modifier traffic.two_junction_network:
+    r1,r2,r3: road with:
+        keep(min_lanes >= 2)
+    j1, j2: Junction
+    f1: roads_follow_in_junction(junction: j1,number_of_in_roads: 4,
+        in_road: r1, out_road: r2, direction: right)
+    f2: roads_follow_in_junction(junction: j2, in_road: r2,
+        out_road: r3)
+
+    rt1: route = create_route(
+        [r1, f1.junction_road, r2, f2.junction_road, r3])
+    rt2: route = create_route(
+        [r1, f2.junction_road, r2])
+
+# Use that modifier
+scenario traffic.drive_along_two_junctions:
+    n : two_junction_network()
+    v1, v2 : vehicle
+    do parallel:
+        v1.drive() with:
+            along(n.route1)
+        serial:
+            v2.drive() with:  # Initially drive behind v1
+                along(n.route2)
+                position([10..50]m, behind: v1)
+            …  # Then do something else
+----
+
+[source,ruby]
+----
+class PrismSyntaxHighlighter < Asciidoctor::SyntaxHighlighter::Base
+  register_for 'prism'
+
+  def format node, lang, opts
+    opts[:transform] = proc do |pre, code|
+      code['class'] = %(language-#{lang}) if lang
+    end
+    super
+  end
+
+  def docinfo? location
+    location == :footer
+  end
+
+  def docinfo location, doc, opts
+    base_url = doc.attr 'prismdir', %(#{opts[:cdn_base_url]}/prism/1.15.0)
+    slash = opts[:self_closing_tag_slash]
+    unless (theme_name = doc.attr 'prism-style', 'prism') == 'prism'
+      theme_name = %(prism-#{theme_name})
+    end
+    %(<link rel="stylesheet" href="#{base_url}/themes/#{theme_name}.min.css"#{slash}>
+<script src="#{base_url}/prism.min.js"></script>
+<script src="#{base_url}/components/prism-ruby.min.js"></script>)
+  end
+end
+----
+
+[NOTE]
+The modifier two_junctions_network() is used to package several roads and junctions together.
+You can also put all that code directly in the scenario, but putting it in a modifier makes it more reusable.
+
+[NOTE]
+This modifier contains other modifier invocations (like f1 and f2).
+This makes user-defined modifiers so useful.
+
+[NOTE]
+You can also add constraints “from the outside”.
+
+== Example 2: Adding a traffic light
+
+Suppose you want to express the following in the scenario above:
+
+* Junction j1 should have a traffic light.
+
+Change the line
+```
+n : two_junction_network()
+```
+into
+```
+n : two_junction_network()
+keep(n.j1.has_traffic_light())
+# Assuming this method exists
+```
