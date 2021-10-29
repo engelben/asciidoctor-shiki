@@ -1,0 +1,9 @@
+version: "2"
+ 
+services: 
+
+  adoc:
+    image: engelben/docker-asciidoctor-shiki
+    volumes: 
+      - .:/documents
+    command: asciidoctor -a mathjax -r asciidoctor-shiki --trace -r asciidoctor-diagram test.adoc -o test.html
